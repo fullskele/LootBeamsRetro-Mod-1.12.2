@@ -34,10 +34,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Mod.EventBusSubscriber(value = Side.CLIENT, modid = LootBeamsRetro.MODID)
-public class ClientEventHandler {
+public class RenderEventHandler {
 
     private static final ResourceLocation LOOT_BEAM_TEXTURE =
-            new ResourceLocation(LootBeamsRetro.MODID, "textures/entity/loot_beam_new.png");
+            new ResourceLocation(LootBeamsRetro.MODID, "textures/entity/loot_beam.png");
 
     public static final Map<ResourceLocation, Integer> COLOR_OVERRIDES = new HashMap<>();
     private static final Frustum frustum = new Frustum();

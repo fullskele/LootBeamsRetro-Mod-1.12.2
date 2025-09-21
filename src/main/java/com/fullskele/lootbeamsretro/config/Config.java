@@ -1,6 +1,6 @@
 package com.fullskele.lootbeamsretro.config;
 
-import com.fullskele.lootbeamsretro.render.ClientEventHandler;
+import com.fullskele.lootbeamsretro.render.RenderEventHandler;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.config.Configuration;
 
@@ -225,6 +225,7 @@ public final class Config {
         ).getDouble();
 
 
+
         category = "render.beam.outer";
 
         outerBeamXOffset = instance.get(
@@ -292,7 +293,7 @@ public final class Config {
 
                 int color = Integer.parseInt(hex, 16);
 
-                ClientEventHandler.COLOR_OVERRIDES.put(id, color);
+                RenderEventHandler.COLOR_OVERRIDES.put(id, color);
             } catch (Exception e) {
                 System.out.println("[LootBeams] Invalid color override: " + entry);
             }

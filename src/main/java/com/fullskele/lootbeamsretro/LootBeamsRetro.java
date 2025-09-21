@@ -1,11 +1,9 @@
 package com.fullskele.lootbeamsretro;
 
 import com.fullskele.lootbeamsretro.config.Config;
-import com.fullskele.lootbeamsretro.render.ClientEventHandler;
+import com.fullskele.lootbeamsretro.render.RenderEventHandler;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.Mod.EventHandler;
-import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 
@@ -28,16 +26,10 @@ public class LootBeamsRetro
         Config.preInit(event.getSuggestedConfigurationFile());
     }
 
-    @EventHandler
-    public void init(FMLInitializationEvent event)
-    {
-
-    }
-
     @Mod.EventHandler
     public void onPostInit(FMLPostInitializationEvent event) {
         if (Loader.isModLoaded("legendarytooltips") && Config.legendaryTooltipsCompat) {
-            ClientEventHandler.integrateLegendaryTooltips();
+            RenderEventHandler.integrateLegendaryTooltips();
         }
     }
 }
