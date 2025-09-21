@@ -92,11 +92,11 @@ public class ClientEventHandler {
                     (float) (mc.world.getTotalWorldTime() + partialTicks));
 
 
-            if (!Config.enableNametagRender || player.getDistance(item) > Config.nametagBlockMaxDistance) continue;
-
-            if (!isLookingAt(player, item, Config.nametagCenterCutoff)) continue;
-
-            if (!canSee(player, item)) continue;
+            if (!Config.enableNametagRender ||
+                    player.getDistance(item) > Config.nametagBlockMaxDistance ||
+                    !isLookingAt(player, item, Config.nametagCenterCutoff) ||
+                    !canSee(player, item) ||
+                    !Minecraft.isGuiEnabled()) continue;
 
             Color tagColor = new Color(rgb[0], rgb[1], rgb[2]);
             renderNameTag(item, x + Config.nametagXOffset, y + Config.nametagYOffset, z + Config.nametagZOffset, tagColor);
