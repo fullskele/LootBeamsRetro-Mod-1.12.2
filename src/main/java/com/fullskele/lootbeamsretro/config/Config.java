@@ -140,7 +140,7 @@ public final class Config {
         nametagYOffset = instance.get(
                 category,
                 "nametagYOffset",
-                0.5D,
+                0.6D,
                 "Y offset for the floating nametag"
         ).getDouble();
 
