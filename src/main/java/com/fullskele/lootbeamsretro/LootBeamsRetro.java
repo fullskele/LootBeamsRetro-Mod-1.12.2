@@ -9,7 +9,14 @@ import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 
-@Mod(modid = LootBeamsRetro.MODID, name = LootBeamsRetro.NAME, version = LootBeamsRetro.VERSION, guiFactory = "com.fullskele.lootbeamsretro.config.ModGuiFactory")
+@Mod(
+        modid = LootBeamsRetro.MODID,
+        name = LootBeamsRetro.NAME,
+        version = LootBeamsRetro.VERSION,
+        guiFactory = "com.fullskele.lootbeamsretro.config.ModGuiFactory",
+        acceptableRemoteVersions = "*",
+        clientSideOnly = true
+)
 public class LootBeamsRetro
 {
     public static final String MODID = "lootbeamsretro";
