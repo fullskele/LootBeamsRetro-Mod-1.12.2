@@ -99,30 +99,15 @@ public class ClientEventHandler {
             if (!canSee(player, item)) continue;
 
             Color tagColor = new Color(rgb[0], rgb[1], rgb[2]);
-            renderNameTag(item, x, y + 0.5D, z, tagColor);
+            renderNameTag(item, x + Config.nametagXOffset, y + Config.nametagYOffset, z + Config.nametagZOffset, tagColor);
         }
     }
 
-    private static boolean isLookingAt(EntityPlayerSP player, Entity target, double tolerance) {
-        Vec3d lookVec = player.getLookVec().normalize();
-        Vec3d toTarget = new Vec3d(
-                target.posX - player.posX,
-                target.posY + target.height * 0.5 - (player.posY + player.getEyeHeight()),
-                target.posZ - player.posZ
-        ).normalize();
-
-        double dot = lookVec.dotProduct(toTarget);
-        return dot > (1.0D - tolerance);
-    }
-
-    private static double interpolate(double last, double current, double partialTicks) {
-        return last + (current - last) * partialTicks;
-    }
 
     private static void renderLootBeam(double x, double y, double z,
-                                                     float height, float radius,
-                                                     float r, float g, float b, float a,
-                                                     float time) {
+                                       float height, float radius,
+                                       float r, float g, float b, float a,
+                                       float time) {
         Minecraft mc = Minecraft.getMinecraft();
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder buf = tess.getBuffer();
@@ -185,109 +170,13 @@ public class ClientEventHandler {
         GlStateManager.popMatrix();
     }
 
-    /*
-    private static void renderLootBeamOld(double x, double y, double z,
-                                       float height, float radius,
-                                       float r, float g, float b, float a,
-                                       float time) {
-        Minecraft mc = Minecraft.getMinecraft();
-        Tessellator tess = Tessellator.getInstance();
-        BufferBuilder buf = tess.getBuffer();
-
-        mc.getTextureManager().bindTexture(LOOT_BEAM_TEXTURE);
-
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(x, y, z);
-
-        GlStateManager.disableLighting();
-        GlStateManager.enableBlend();
-        GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        GlStateManager.disableCull();
-        GlStateManager.enableDepth();
-        GlStateManager.depthMask(false);
-
-        float rotation = (time % 40) / 40.0F * Config.beamRotateSpeed;
-        GlStateManager.rotate(rotation * 2.25F - 45F, 0, 1, 0);
-
-        buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
-
-        //Front
-        buf.pos(-radius, 0, -radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, -radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, -radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, 0, -radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        //Back
-        buf.pos(radius, 0, radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, 0, radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        //Left
-        buf.pos(-radius, 0, radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, -radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, 0, -radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        //Right
-        buf.pos(radius, 0, -radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, -radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, 0, radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        tess.draw();
-
-        GlStateManager.depthMask(true);
-        GlStateManager.enableCull();
-        GlStateManager.disableBlend();
-        GlStateManager.enableLighting();
-        GlStateManager.popMatrix();
-    }
-
-     */
-
-    private static float[] getRarityColor(EnumRarity rarity) {
-        switch (rarity) {
-            case COMMON:
-                //white
-                return new float[]{1f, 1f, 1f};
-            case UNCOMMON:
-                //yellow
-                return new float[]{1f, 1f, 0f};
-            case RARE:
-                //cyan
-                return new float[]{0f, 1f, 1f};
-            case EPIC:
-                //hot pink
-                return new float[]{1f, 0f, 1f};
-            default:
-                return new float[]{1f, 1f, 1f};
-        }
-    }
-
-    private static float[] hexToRgb(int hex) {
-        float r = ((hex >> 16) & 0xFF) / 255.0F;
-        float g = ((hex >> 8) & 0xFF) / 255.0F;
-        float b = (hex & 0xFF) / 255.0F;
-        return new float[]{r, g, b};
-    }
-
-    private static boolean canSee(EntityPlayerSP player, EntityItem item) {
-        Vec3d eyePos = player.getPositionEyes(1.0F);
-        Vec3d targetPos = new Vec3d(item.posX, item.posY + (item.height * 0.5), item.posZ);
-
-        RayTraceResult result = player.world.rayTraceBlocks(eyePos, targetPos, false, true, false);
-
-        return result == null || result.typeOfHit == RayTraceResult.Type.MISS;
-    }
-
     private static void renderNameTag(EntityItem item, double x, double y, double z, Color color) {
         Minecraft mc = Minecraft.getMinecraft();
         FontRenderer fontRenderer = mc.fontRenderer;
 
         GlStateManager.pushMatrix();
         {
-            GlStateManager.translate(x, y + 0.5D, z);
+            GlStateManager.translate(x + Config.nametagXOffset, y + Config.nametagYOffset, z + Config.nametagZOffset);
 
             GlStateManager.rotate(-mc.getRenderManager().playerViewY, 0.0F, 1.0F, 0.0F);
             GlStateManager.rotate(mc.getRenderManager().playerViewX, 1.0F, 0.0F, 0.0F);
@@ -336,57 +225,56 @@ public class ClientEventHandler {
         GlStateManager.popMatrix();
     }
 
-    /*
-    private static void renderNameTagOld(EntityItem item, double x, double y, double z, Color color) {
-        Minecraft mc = Minecraft.getMinecraft();
-        EntityPlayerSP player = mc.player;
-        FontRenderer fontRenderer = mc.fontRenderer;
-
-        GlStateManager.pushMatrix();
-        {
-            GlStateManager.translate(x, y + 0.5D, z);
-
-            GlStateManager.rotate(-mc.getRenderManager().playerViewY, 0.0F, 1.0F, 0.0F);
-            GlStateManager.rotate(mc.getRenderManager().playerViewX, 1.0F, 0.0F, 0.0F);
-
-            float scale = 0.016666668F * 1.6F * Config.nameTagScale;
-            GlStateManager.scale(-scale, -scale, scale);
-
-            GlStateManager.disableLighting();
-            GlStateManager.depthMask(false);
-            GlStateManager.disableDepth();
-            GlStateManager.enableBlend();
-
-            String itemName = item.getItem().getDisplayName();
-            int count = item.getItem().getCount();
-            if (count > 1) {
-                itemName = itemName + " x" + count;
-            }
-
-            int textWidth = fontRenderer.getStringWidth(itemName) / 2;
-
-            Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder buffer = tessellator.getBuffer();
-            GlStateManager.disableTexture2D();
-            buffer.begin(7, DefaultVertexFormats.POSITION_COLOR);
-            buffer.pos(-textWidth - 1, -1, 0.0D).color(0, 0, 0, 64).endVertex();
-            buffer.pos(-textWidth - 1, 8, 0.0D).color(0, 0, 0, 64).endVertex();
-            buffer.pos(textWidth + 1, 8, 0.0D).color(0, 0, 0, 64).endVertex();
-            buffer.pos(textWidth + 1, -1, 0.0D).color(0, 0, 0, 64).endVertex();
-            tessellator.draw();
-            GlStateManager.enableTexture2D();
-
-            int rgb = color.getRGB();
-            fontRenderer.drawString(itemName, -textWidth, 0, rgb);
-
-            GlStateManager.enableDepth();
-            GlStateManager.depthMask(true);
-            GlStateManager.enableLighting();
-            GlStateManager.disableBlend();
+    private static float[] getRarityColor(EnumRarity rarity) {
+        switch (rarity) {
+            case COMMON:
+                //white
+                return new float[]{1f, 1f, 1f};
+            case UNCOMMON:
+                //yellow
+                return new float[]{1f, 1f, 0f};
+            case RARE:
+                //cyan
+                return new float[]{0f, 1f, 1f};
+            case EPIC:
+                //hot pink
+                return new float[]{1f, 0f, 1f};
+            default:
+                return new float[]{1f, 1f, 1f};
         }
-        GlStateManager.popMatrix();
     }
-     */
+
+    private static float[] hexToRgb(int hex) {
+        float r = ((hex >> 16) & 0xFF) / 255.0F;
+        float g = ((hex >> 8) & 0xFF) / 255.0F;
+        float b = (hex & 0xFF) / 255.0F;
+        return new float[]{r, g, b};
+    }
+
+    private static double interpolate(double last, double current, double partialTicks) {
+        return last + (current - last) * partialTicks;
+    }
+
+    private static boolean isLookingAt(EntityPlayerSP player, Entity target, double tolerance) {
+        Vec3d lookVec = player.getLookVec().normalize();
+        Vec3d toTarget = new Vec3d(
+                target.posX - player.posX,
+                target.posY + target.height * 0.5 - (player.posY + player.getEyeHeight()),
+                target.posZ - player.posZ
+        ).normalize();
+
+        double dot = lookVec.dotProduct(toTarget);
+        return dot > (1.0D - tolerance);
+    }
+
+    private static boolean canSee(EntityPlayerSP player, EntityItem item) {
+        Vec3d eyePos = player.getPositionEyes(1.0F);
+        Vec3d targetPos = new Vec3d(item.posX, item.posY + (item.height * 0.5), item.posZ);
+
+        RayTraceResult result = player.world.rayTraceBlocks(eyePos, targetPos, false, true, false);
+
+        return result == null || result.typeOfHit == RayTraceResult.Type.MISS;
+    }
 
     private static Iterable<ItemStack> getAllRegisteredItems() {
         return ForgeRegistries.ITEMS.getValuesCollection().stream()

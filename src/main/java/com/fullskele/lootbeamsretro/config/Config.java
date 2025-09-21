@@ -25,6 +25,9 @@ public final class Config {
 
     public static double nametagBlockMaxDistance;
     public static double nametagCenterCutoff;
+    public static double nametagXOffset;
+    public static double nametagYOffset;
+    public static double nametagZOffset;
     public static float nameTagScale;
 
     public static double innerBeamXOffset;
@@ -127,6 +130,28 @@ public final class Config {
                 "Scale factor for nametag render"
         ).getDouble();
 
+        nametagXOffset = instance.get(
+                category,
+                "nametagXOffset",
+                0,
+                "X offset for the floating nametag"
+        ).getDouble();
+
+        nametagYOffset = instance.get(
+                category,
+                "nametagYOffset",
+                0.5D,
+                "Y offset for the floating nametag"
+        ).getDouble();
+
+        nametagZOffset = instance.get(
+                category,
+                "nametagZOffset",
+                0,
+                "Z offset for the floating nametag"
+        ).getDouble();
+
+
 
 
         category = "render.beam";
@@ -153,21 +178,21 @@ public final class Config {
                 category,
                 "innerBeamXOffset",
                 0.0,
-                "Horizontal X offset for the inner beam"
+                "X offset for the inner loot beam"
         ).getDouble();
 
         innerBeamYOffset = instance.get(
                 category,
                 "innerBeamYOffset",
                 0.25D,
-                "Vertical Y offset for the inner beam"
+                "Y offset for the inner loot beam"
         ).getDouble();
 
         innerBeamZOffset = instance.get(
                 category,
                 "innerBeamZOffset",
                 0.0,
-                "Depth Z offset for the inner beam"
+                "Z offset for the inner loot beam"
         ).getDouble();
 
         innerBeamHeight = (float) instance.get(
