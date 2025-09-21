@@ -1,0 +1,36 @@
+package com.fullskele.lootbeamsretro;
+
+import com.fullskele.lootbeamsretro.config.Config;
+import com.fullskele.lootbeamsretro.render.ClientEventHandler;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.Mod.EventHandler;
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+
+@Mod(modid = LootBeamsRetro.MODID, name = LootBeamsRetro.NAME, version = LootBeamsRetro.VERSION, guiFactory = "com.fullskele.lootbeamsretro.config.ModGuiFactory")
+public class LootBeamsRetro
+{
+    public static final String MODID = "lootbeamsretro";
+    public static final String NAME = "Loot Beams Retro";
+    public static final String VERSION = "1.0.0";
+
+    @Mod.EventHandler
+    public void preInit(FMLPreInitializationEvent event) {
+        Config.preInit(event.getSuggestedConfigurationFile());
+    }
+
+    @EventHandler
+    public void init(FMLInitializationEvent event)
+    {
+
+    }
+
+    @Mod.EventHandler
+    public void onPostInit(FMLPostInitializationEvent event) {
+        if (Loader.isModLoaded("legendarytooltips") && Config.legendaryTooltipsCompat) {
+            ClientEventHandler.integrateLegendaryTooltips();
+        }
+    }
+}
