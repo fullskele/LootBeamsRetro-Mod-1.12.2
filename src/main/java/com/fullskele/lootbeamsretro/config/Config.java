@@ -13,6 +13,7 @@ public final class Config {
     public static boolean beamForCommonRarity;
     public static boolean beamForAnyRarity;
     public static boolean enableNametagRender;
+    public static boolean nametagShowsStackSize;
     public static String[] colorOverrides;
 
     @net.minecraftforge.common.config.Config.RequiresMcRestart
@@ -75,6 +76,13 @@ public final class Config {
                 "enableNametagRender",
                 true,
                 "Should floating item names be displayed along with loot beams?"
+        ).getBoolean();
+
+        nametagShowsStackSize = instance.get(
+                category,
+                "nametagShowsStackSize",
+                false,
+                "Should floating nametags also display how many items are present in the dropped stack (3x Cobblestone)?"
         ).getBoolean();
 
         colorOverrides = instance.get(
@@ -140,7 +148,7 @@ public final class Config {
         nametagYOffset = instance.get(
                 category,
                 "nametagYOffset",
-                0.6D,
+                1.0D,
                 "Y offset for the floating nametag"
         ).getDouble();
 

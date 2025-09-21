@@ -176,7 +176,7 @@ public class ClientEventHandler {
 
         GlStateManager.pushMatrix();
         {
-            GlStateManager.translate(x + Config.nametagXOffset, y + Config.nametagYOffset, z + Config.nametagZOffset);
+            GlStateManager.translate(x, y, z);
 
             GlStateManager.rotate(-mc.getRenderManager().playerViewY, 0.0F, 1.0F, 0.0F);
             GlStateManager.rotate(mc.getRenderManager().playerViewX, 1.0F, 0.0F, 0.0F);
@@ -194,9 +194,9 @@ public class ClientEventHandler {
             GlStateManager.enableBlend();
 
             String itemName = item.getItem().getDisplayName();
-            int count = item.getItem().getCount();
-            if (count > 1) {
-                itemName = count + "x " + itemName;
+
+            if (Config.nametagShowsStackSize && item.getItem().getCount() > 1) {
+                itemName = item.getItem().getCount() + "x " + itemName;
             }
 
             int textWidth = fontRenderer.getStringWidth(itemName) / 2;
