@@ -20,6 +20,7 @@ public final class Config {
     public static boolean legendaryTooltipsCompat;
     @net.minecraftforge.common.config.Config.RequiresMcRestart
     public static boolean legendaryTooltipsAffectRarity;
+    public static boolean itemBordersCompat;
 
     public static float beamRotateSpeed;
     public static double beamBlockMaxDistance;
@@ -111,6 +112,13 @@ public final class Config {
                 "legendaryTooltipsAffectRarity",
                 false,
                 "Should Legendary Tooltips override uncommon/rare/epic item colors?"
+        ).getBoolean();
+
+        itemBordersCompat = instance.get(
+                category,
+                "itemBordersCompat",
+                true,
+                "Should Item Borders compatibility be enabled?"
         ).getBoolean();
 
 

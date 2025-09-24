@@ -1,5 +1,6 @@
 package com.fullskele.lootbeamsretro.render;
 
+import com.anthonyhilyard.itemborders.config.ItemBordersConfig;
 import com.anthonyhilyard.legendarytooltips.LegendaryTooltips;
 import com.anthonyhilyard.legendarytooltips.LegendaryTooltipsConfig;
 import com.fullskele.lootbeamsretro.LootBeamsRetro;
@@ -20,10 +21,12 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
+import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import net.minecraftforge.fml.relauncher.Side;
+import org.apache.commons.lang3.tuple.Pair;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 
@@ -31,10 +34,13 @@ import java.awt.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Mod.EventBusSubscriber(value = Side.CLIENT, modid = LootBeamsRetro.MODID)
 public class RenderEventHandler {
+
+    //TODO: Metadata support
 
     private static final ResourceLocation LOOT_BEAM_TEXTURE =
             new ResourceLocation(LootBeamsRetro.MODID, "textures/entity/loot_beam.png");
@@ -69,14 +75,44 @@ public class RenderEventHandler {
             EnumRarity rarity = stack.getRarity();
 
             float[] rgb = rarityCache.computeIfAbsent(rarity, r -> getRarityColor(r));
+            boolean usedBorderColor = false;
 
-            //Override color if in map
-            ResourceLocation id = stack.getItem().getRegistryName();
-            if (id != null && COLOR_OVERRIDES.containsKey(id)) {
-                rgb = hexToRgb(COLOR_OVERRIDES.get(id));
-            } else {
-                if (!Config.beamForAnyRarity) continue;
-                if (rarity == EnumRarity.COMMON && !Config.beamForCommonRarity) continue;
+            if (Config.itemBordersCompat && Loader.isModLoaded("itemborders"))
+            {
+                Pair<Supplier<Integer>, Supplier<Integer>> borderColors = ItemBordersConfig.INSTANCE.getBorderColorForItem(stack);
+
+                if (borderColors != null
+                        && borderColors.getLeft() != null && borderColors.getLeft().get() != null
+                        && borderColors.getRight() != null && borderColors.getRight().get() != null)
+                {
+                    int leftColor = borderColors.getLeft().get();
+
+                    // Logic to skip common items to favor usual overrides
+                    if (!(rarity == EnumRarity.COMMON
+                            && (leftColor == 0xFFFFFF || leftColor == 0xFFFFFFFF)))
+                    {
+                        Color color = new Color(leftColor, true);
+                        rgb = new float[] {
+                                color.getRed() / 255f,
+                                color.getGreen() / 255f,
+                                color.getBlue() / 255f
+                        };
+                        usedBorderColor = true;
+                    }
+                }
+            }
+
+            //Usual logic if no usable border color
+            if (!usedBorderColor)
+            {
+                //Override color if in map
+                ResourceLocation id = stack.getItem().getRegistryName();
+                if (id != null && COLOR_OVERRIDES.containsKey(id)) {
+                    rgb = hexToRgb(COLOR_OVERRIDES.get(id));
+                } else {
+                    if (!Config.beamForAnyRarity) continue;
+                    if (rarity == EnumRarity.COMMON && !Config.beamForCommonRarity) continue;
+                }
             }
 
             //Inner beam
