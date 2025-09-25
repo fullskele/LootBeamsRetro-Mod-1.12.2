@@ -33,7 +33,6 @@ import org.lwjgl.opengl.GL20;
 
 import java.awt.*;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -61,15 +60,18 @@ public class RenderEventHandler {
 
         frustum.setPosition(px, py, pz);
 
-        List<EntityItem> items = mc.world.getEntitiesWithinAABB(EntityItem.class,
-                player.getEntityBoundingBox().grow(Config.beamBlockMaxDistance));
-
-        for (EntityItem item : items) {
-            if (!frustum.isBoundingBoxInFrustum(item.getEntityBoundingBox())) continue;
+        for (EntityItem item : mc.world.getEntitiesWithinAABB(EntityItem.class, player.getEntityBoundingBox().grow(Config.beamBlockMaxDistance))) {
+            if (!item.isInRangeToRender3d(px, py, pz)) continue;
 
             double x = interpolate(item.lastTickPosX, item.posX, partialTicks) - px;
             double y = interpolate(item.lastTickPosY, item.posY, partialTicks) - py;
             double z = interpolate(item.lastTickPosZ, item.posZ, partialTicks) - pz;
+
+            if (!item.ignoreFrustumCheck)
+            {
+                double beamHeight = Math.max(Config.innerBeamYOffset + Config.innerBeamHeight, Config.outerBeamYOffset + Config.outerBeamHeight);
+                if (!frustum.isBoundingBoxInFrustum(item.getRenderBoundingBox().setMaxY(py + y + beamHeight))) continue;
+            }
 
             ItemStack stack = item.getItem();
             IRarity rarity = stack.getItem().getForgeRarity(stack);
