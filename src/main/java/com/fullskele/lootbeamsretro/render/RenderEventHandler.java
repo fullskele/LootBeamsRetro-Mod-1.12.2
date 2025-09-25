@@ -22,7 +22,6 @@ import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.IRarity;
-import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
@@ -81,7 +80,7 @@ public class RenderEventHandler {
             float[] rgb = getRarityColor(fontRenderer, rarity);
             boolean usedBorderColor = false;
 
-            if (Config.itemBordersCompat && Loader.isModLoaded("itemborders"))
+            if (Config.itemBordersCompat && LootBeamsRetro.hasItemBoarders)
             {
                 Pair<Supplier<Integer>, Supplier<Integer>> borderColors = ItemBordersConfig.INSTANCE.getBorderColorForItem(stack);
 

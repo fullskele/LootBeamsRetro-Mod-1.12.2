@@ -21,6 +21,9 @@ public class LootBeamsRetro
     public static final String NAME = "Loot Beams Retro";
     public static final String VERSION = "1.1.0";
 
+    public static final boolean hasItemBoarders = Loader.isModLoaded("itemborders");
+    public static final boolean hasLegendaryTooltips = Loader.isModLoaded("legendarytooltips");
+
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         Config.preInit(event.getSuggestedConfigurationFile());
@@ -28,7 +31,7 @@ public class LootBeamsRetro
 
     @Mod.EventHandler
     public void onPostInit(FMLPostInitializationEvent event) {
-        if (Loader.isModLoaded("legendarytooltips") && Config.legendaryTooltipsCompat) {
+        if (hasLegendaryTooltips && Config.legendaryTooltipsCompat) {
             RenderEventHandler.integrateLegendaryTooltips();
         }
     }
