@@ -16,6 +16,7 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.item.EnumRarity;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.RayTraceResult;
@@ -34,17 +35,16 @@ import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
+
+import static com.fullskele.lootbeamsretro.config.Config.hexToRgb;
 
 @Mod.EventBusSubscriber(value = Side.CLIENT, modid = LootBeamsRetro.MODID)
-public class RenderEventHandler {
-
-    //TODO: Metadata support
-
+public class RenderEventHandler
+{
     private static final ResourceLocation LOOT_BEAM_TEXTURE =
             new ResourceLocation(LootBeamsRetro.MODID, "textures/entity/loot_beam.png");
 
-    public static final Map<ResourceLocation, Integer> COLOR_OVERRIDES = new HashMap<>();
+    public static final Map<Pair<Item, Integer>, float[]> COLOR_OVERRIDES = new HashMap<>();
     private static final Frustum frustum = new Frustum();
 
     @SubscribeEvent
@@ -109,9 +109,9 @@ public class RenderEventHandler {
             if (!usedBorderColor)
             {
                 //Override color if in map
-                ResourceLocation id = stack.getItem().getRegistryName();
-                if (id != null && COLOR_OVERRIDES.containsKey(id)) {
-                    rgb = hexToRgb(COLOR_OVERRIDES.get(id));
+                Pair<Item, Integer> id = Pair.of(stack.getItem(), stack.getMetadata());
+                if (COLOR_OVERRIDES.containsKey(id)) {
+                    rgb = COLOR_OVERRIDES.get(id);
                 } else {
                     if (!Config.beamForAnyRarity) continue;
                     if (rarity == EnumRarity.COMMON && !Config.beamForCommonRarity) continue;
@@ -266,13 +266,6 @@ public class RenderEventHandler {
         return hexToRgb(fontRenderer.getColorCode(rarity.getColor().toString().charAt(1)));
     }
 
-    private static float[] hexToRgb(int hex) {
-        float r = ((hex >> 16) & 0xFF) / 255.0F;
-        float g = ((hex >> 8) & 0xFF) / 255.0F;
-        float b = (hex & 0xFF) / 255.0F;
-        return new float[]{r, g, b};
-    }
-
     private static double interpolate(double last, double current, double partialTicks) {
         return last + (current - last) * partialTicks;
     }
@@ -298,22 +291,20 @@ public class RenderEventHandler {
         return result == null || result.typeOfHit == RayTraceResult.Type.MISS;
     }
 
-    private static Iterable<ItemStack> getAllRegisteredItems() {
-        return ForgeRegistries.ITEMS.getValuesCollection().stream()
-                .filter(i -> i != null)
-                .map(ItemStack::new)
-                .collect(Collectors.toList());
+    private static ItemStack[] getAllRegisteredItems() {
+        return ForgeRegistries.ITEMS.getValuesCollection().stream().flatMap(Config::getSubItems).toArray(ItemStack[]::new);
     }
 
     public static void integrateLegendaryTooltips() {
-        try {
+        if (LootBeamsRetro.hasLegendaryTooltips && Config.legendaryTooltipsCompat) try {
             LegendaryTooltipsConfig config = LegendaryTooltipsConfig.INSTANCE;
+            ItemStack[] allItems = getAllRegisteredItems();
 
             for (int level = 0; level < LegendaryTooltips.NUM_FRAMES; level++) {
                 Integer colorHex = config.getCustomBackgroundColor(level);
                 if (colorHex == null) continue;
 
-                for (ItemStack stack : getAllRegisteredItems()) {
+                for (ItemStack stack : allItems) {
                     if (config.getFrameLevelForItem(stack) == level) {
                         IRarity rarity = stack.getItem().getForgeRarity(stack);
 
@@ -321,10 +312,7 @@ public class RenderEventHandler {
                             continue;
                         }
 
-                        ResourceLocation id = stack.getItem().getRegistryName();
-                        if (id != null) {
-                            COLOR_OVERRIDES.put(id, colorHex);
-                        }
+                        COLOR_OVERRIDES.put(Pair.of(stack.getItem(), stack.getMetadata()), hexToRgb(colorHex));
                     }
                 }
             }

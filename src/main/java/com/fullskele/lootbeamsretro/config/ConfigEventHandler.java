@@ -10,8 +10,8 @@ public class ConfigEventHandler {
     @SubscribeEvent
     public static void onConfigChanged(ConfigChangedEvent.OnConfigChangedEvent event) {
         if (event.getModID().equals(LootBeamsRetro.MODID)) {
-            Config.load();
             if (Config.instance.hasChanged()) {
+                Config.loadItems(true);
                 Config.instance.save();
             }
         }

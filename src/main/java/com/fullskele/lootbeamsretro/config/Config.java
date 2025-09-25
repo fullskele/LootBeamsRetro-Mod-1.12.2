@@ -1,10 +1,17 @@
 package com.fullskele.lootbeamsretro.config;
 
 import com.fullskele.lootbeamsretro.render.RenderEventHandler;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.config.Configuration;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.File;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 public final class Config {
 
@@ -277,16 +284,14 @@ public final class Config {
                 0.35,
                 "Transparency (alpha) of the outer beam"
         ).getDouble();
+    }
 
-
-
-
-
-
-
-
-
-
+    public static void loadItems(boolean reload) {
+        if (reload) {
+            load();
+            RenderEventHandler.COLOR_OVERRIDES.clear();
+            RenderEventHandler.integrateLegendaryTooltips();
+        }
 
         for (String entry : colorOverrides) {
             try {
@@ -295,17 +300,37 @@ public final class Config {
 
                 ResourceLocation id = new ResourceLocation(parts[0].trim());
                 String hex = parts[1].trim();
+                int metaIndex = id.getPath().indexOf(':');
+
+                ResourceLocation itemId = metaIndex == -1 ? id : new ResourceLocation(id.getNamespace(), id.getPath().substring(0, metaIndex));
+                Item item = Objects.requireNonNull(Item.REGISTRY.getObject(itemId), () -> "No item with id " + itemId);
 
                 if (hex.startsWith("#")) hex = hex.substring(1);
                 if (hex.startsWith("0x")) hex = hex.substring(2);
 
-                int color = Integer.parseInt(hex, 16);
+                float[] color = hexToRgb(Integer.parseInt(hex, 16));
 
-                RenderEventHandler.COLOR_OVERRIDES.put(id, color);
-            } catch (Exception e) {
-                System.out.println("[LootBeams] Invalid color override: " + entry);
+                if (metaIndex == -1) getSubItems(item).forEach(stack -> RenderEventHandler.COLOR_OVERRIDES.put(Pair.of(item, stack.getMetadata()), color));
+                else RenderEventHandler.COLOR_OVERRIDES.put(Pair.of(item, Integer.parseInt(id.getPath().substring(metaIndex + 1))), color);
+            }
+            catch (Exception e) {
+                System.err.println("[LootBeams] Invalid color override: " + entry);
+                System.err.println(e.getLocalizedMessage());
             }
         }
+    }
+
+    public static Stream<ItemStack> getSubItems(Item item) {
+        NonNullList<ItemStack> items = NonNullList.create();
+        item.getSubItems(CreativeTabs.SEARCH, items);
+        return !items.isEmpty() ? items.stream() : Stream.of(new ItemStack(item));
+    }
+
+    public static float[] hexToRgb(int hex) {
+        float r = ((hex >> 16) & 0xFF) / 255.0F;
+        float g = ((hex >> 8) & 0xFF) / 255.0F;
+        float b = (hex & 0xFF) / 255.0F;
+        return new float[]{r, g, b};
     }
 
     private Config() {}
