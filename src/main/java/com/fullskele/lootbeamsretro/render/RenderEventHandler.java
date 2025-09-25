@@ -21,6 +21,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
+import net.minecraftforge.common.IRarity;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -47,7 +48,6 @@ public class RenderEventHandler {
 
     public static final Map<ResourceLocation, Integer> COLOR_OVERRIDES = new HashMap<>();
     private static final Frustum frustum = new Frustum();
-    private static final Map<EnumRarity, float[]> rarityCache = new HashMap<>();
 
     @SubscribeEvent
     public static void onRenderWorldLast(RenderWorldLastEvent event) {
@@ -72,9 +72,11 @@ public class RenderEventHandler {
             double z = interpolate(item.lastTickPosZ, item.posZ, partialTicks) - pz;
 
             ItemStack stack = item.getItem();
-            EnumRarity rarity = stack.getRarity();
+            IRarity rarity = stack.getItem().getForgeRarity(stack);
+            FontRenderer fontRenderer = stack.getItem().getFontRenderer(stack);
+            if (fontRenderer == null) fontRenderer = mc.fontRenderer;
 
-            float[] rgb = rarityCache.computeIfAbsent(rarity, r -> getRarityColor(r));
+            float[] rgb = getRarityColor(fontRenderer, rarity);
             boolean usedBorderColor = false;
 
             if (Config.itemBordersCompat && Loader.isModLoaded("itemborders"))
@@ -135,7 +137,7 @@ public class RenderEventHandler {
                     !Minecraft.isGuiEnabled()) continue;
 
             Color tagColor = new Color(rgb[0], rgb[1], rgb[2]);
-            renderNameTag(item, x + Config.nametagXOffset, y + Config.nametagYOffset, z + Config.nametagZOffset, tagColor);
+            renderNameTag(item, x + Config.nametagXOffset, y + Config.nametagYOffset, z + Config.nametagZOffset, tagColor, fontRenderer);
         }
     }
 
@@ -206,10 +208,8 @@ public class RenderEventHandler {
         GlStateManager.popMatrix();
     }
 
-    private static void renderNameTag(EntityItem item, double x, double y, double z, Color color) {
+    private static void renderNameTag(EntityItem item, double x, double y, double z, Color color, FontRenderer fontRenderer) {
         Minecraft mc = Minecraft.getMinecraft();
-        FontRenderer fontRenderer = mc.fontRenderer;
-
         GlStateManager.pushMatrix();
         {
             GlStateManager.translate(x, y, z);
@@ -261,23 +261,8 @@ public class RenderEventHandler {
         GlStateManager.popMatrix();
     }
 
-    private static float[] getRarityColor(EnumRarity rarity) {
-        switch (rarity) {
-            case COMMON:
-                //white
-                return new float[]{1f, 1f, 1f};
-            case UNCOMMON:
-                //yellow
-                return new float[]{1f, 1f, 0f};
-            case RARE:
-                //cyan
-                return new float[]{0f, 1f, 1f};
-            case EPIC:
-                //hot pink
-                return new float[]{1f, 0f, 1f};
-            default:
-                return new float[]{1f, 1f, 1f};
-        }
+    private static float[] getRarityColor(FontRenderer fontRenderer, IRarity rarity) {
+        return hexToRgb(fontRenderer.getColorCode(rarity.getColor().toString().charAt(1)));
     }
 
     private static float[] hexToRgb(int hex) {
@@ -329,7 +314,7 @@ public class RenderEventHandler {
 
                 for (ItemStack stack : getAllRegisteredItems()) {
                     if (config.getFrameLevelForItem(stack) == level) {
-                        EnumRarity rarity = stack.getRarity();
+                        IRarity rarity = stack.getItem().getForgeRarity(stack);
 
                         if (!Config.legendaryTooltipsAffectRarity && rarity != EnumRarity.COMMON) {
                             continue;
