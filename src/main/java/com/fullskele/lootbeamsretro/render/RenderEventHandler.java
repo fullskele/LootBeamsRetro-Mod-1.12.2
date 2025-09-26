@@ -10,6 +10,7 @@ import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
@@ -19,6 +20,7 @@ import net.minecraft.item.EnumRarity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
@@ -31,7 +33,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 
-import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -91,15 +92,9 @@ public class RenderEventHandler
                     int leftColor = borderColors.getLeft().get();
 
                     // Logic to skip common items to favor usual overrides
-                    if (!(rarity == EnumRarity.COMMON
-                            && (leftColor == 0xFFFFFF || leftColor == 0xFFFFFFFF)))
+                    if (rarity != EnumRarity.COMMON || leftColor != 0xFFFFFF && leftColor != 0xFFFFFFFF)
                     {
-                        Color color = new Color(leftColor, true);
-                        rgb = new float[] {
-                                color.getRed() / 255f,
-                                color.getGreen() / 255f,
-                                color.getBlue() / 255f
-                        };
+                        rgb = hexToRgb(leftColor);
                         usedBorderColor = true;
                     }
                 }
@@ -121,13 +116,13 @@ public class RenderEventHandler
             //Inner beam
             renderLootBeam(x + Config.innerBeamXOffset, y + Config.innerBeamYOffset, z + Config.innerBeamZOffset,
                     Config.innerBeamHeight, Config.innerBeamRadius,
-                    rgb[0], rgb[1], rgb[2], Config.innerBeamAlpha,
+                    rgb[0], rgb[1], rgb[2], rgb[3] * Config.innerBeamAlpha,
                     (float) (mc.world.getTotalWorldTime() + partialTicks));
 
             //Outer beam
             renderLootBeam(x + Config.outerBeamXOffset, y + Config.outerBeamYOffset, z + Config.outerBeamZOffset,
                     Config.outerBeamHeight, Config.outerBeamRadius,
-                    rgb[0], rgb[1], rgb[2], Config.outerBeamAlpha,
+                    rgb[0], rgb[1], rgb[2], rgb[3] * Config.outerBeamAlpha,
                     (float) (mc.world.getTotalWorldTime() + partialTicks));
 
 
@@ -137,8 +132,7 @@ public class RenderEventHandler
                     !canSee(player, item) ||
                     !Minecraft.isGuiEnabled()) continue;
 
-            Color tagColor = new Color(rgb[0], rgb[1], rgb[2]);
-            renderNameTag(item, x + Config.nametagXOffset, y + Config.nametagYOffset, z + Config.nametagZOffset, tagColor, fontRenderer);
+            renderNameTag(item, x + Config.nametagXOffset, y + Config.nametagYOffset, z + Config.nametagZOffset, rgb, fontRenderer);
         }
     }
 
@@ -159,13 +153,12 @@ public class RenderEventHandler
         int oldProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         if (oldProgram != 0) GL20.glUseProgram(0);
 
-        GlStateManager.disableLighting();
         GlStateManager.enableBlend();
         GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GlStateManager.disableCull();
         GlStateManager.enableDepth();
         GlStateManager.depthMask(false);
-        net.minecraft.client.renderer.RenderHelper.disableStandardItemLighting();
+        RenderHelper.disableStandardItemLighting();
 
         float rotation = (time % 40) / 40.0F * Config.beamRotateSpeed;
         GlStateManager.rotate(rotation * 2.25F - 45F, 0, 1, 0);
@@ -201,15 +194,14 @@ public class RenderEventHandler
         GlStateManager.depthMask(true);
         GlStateManager.enableCull();
         GlStateManager.disableBlend();
-        GlStateManager.enableLighting();
-        net.minecraft.client.renderer.RenderHelper.enableStandardItemLighting();
+        RenderHelper.enableStandardItemLighting();
 
         if (oldProgram != 0) GL20.glUseProgram(oldProgram);
 
         GlStateManager.popMatrix();
     }
 
-    private static void renderNameTag(EntityItem item, double x, double y, double z, Color color, FontRenderer fontRenderer) {
+    private static void renderNameTag(EntityItem item, double x, double y, double z, float[] color, FontRenderer fontRenderer) {
         Minecraft mc = Minecraft.getMinecraft();
         GlStateManager.pushMatrix();
         {
@@ -237,19 +229,20 @@ public class RenderEventHandler
             }
 
             int textWidth = fontRenderer.getStringWidth(itemName) / 2;
+            float alpha = 64f / 255f * color[3];
 
             Tessellator tessellator = Tessellator.getInstance();
             BufferBuilder buffer = tessellator.getBuffer();
             GlStateManager.disableTexture2D();
             buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
-            buffer.pos(-textWidth - 1, -1, 0.0D).color(0, 0, 0, 64).endVertex();
-            buffer.pos(-textWidth - 1, 8, 0.0D).color(0, 0, 0, 64).endVertex();
-            buffer.pos(textWidth + 1, 8, 0.0D).color(0, 0, 0, 64).endVertex();
-            buffer.pos(textWidth + 1, -1, 0.0D).color(0, 0, 0, 64).endVertex();
+            buffer.pos(-textWidth - 1, -1, 0.0D).color(0, 0, 0, alpha).endVertex();
+            buffer.pos(-textWidth - 1, 8, 0.0D).color(0, 0, 0, alpha).endVertex();
+            buffer.pos(textWidth + 1, 8, 0.0D).color(0, 0, 0, alpha).endVertex();
+            buffer.pos(textWidth + 1, -1, 0.0D).color(0, 0, 0, alpha).endVertex();
             tessellator.draw();
             GlStateManager.enableTexture2D();
 
-            int rgb = color.getRGB();
+            int rgb = MathHelper.rgb(color[0], color[1], color[2]) | (int)(color[3] * 255) << 24;
             fontRenderer.drawString(itemName, -textWidth, 0, rgb);
 
             GlStateManager.enableDepth();
