@@ -176,23 +176,50 @@ public class RenderEventHandler
         double x7 = MathHelper.cos(rotation + (float)Math.PI * 7 / 4) * radius * 4 / 3;
         double z7 = MathHelper.sin(rotation + (float)Math.PI * 7 / 4) * radius * 4 / 3;
 
+        float midY = height / 2f;
+
         buf.setTranslation(x, y, z);
+
         buf.pos(x3, height, z3).tex(1, 1).color(r, g, b, 0).endVertex();
-        buf.pos(x3, 0,      z3).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(x1, 0,      z1).tex(0, 0).color(r, g, b, a).endVertex();
+        buf.pos(x3, midY,   z3).tex(1, 0.5).color(r, g, b, a).endVertex();
+        buf.pos(x1, midY,   z1).tex(0, 0.5).color(r, g, b, a).endVertex();
         buf.pos(x1, height, z1).tex(0, 1).color(r, g, b, 0).endVertex();
-        buf.pos(x7, height, z7).tex(1, 1).color(r, g, b, 0).endVertex();
-        buf.pos(x7, 0,      z7).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(x5, 0,      z5).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(x5, height, z5).tex(0, 1).color(r, g, b, 0).endVertex();
-        buf.pos(x1, height, z1).tex(1, 1).color(r, g, b, 0).endVertex();
-        buf.pos(x1, 0,      z1).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(x7, 0,      z7).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(x7, height, z7).tex(0, 1).color(r, g, b, 0).endVertex();
+
+        buf.pos(x3, midY,   z3).tex(1, 0.5).color(r, g, b, a).endVertex();
+        buf.pos(x3, 0,      z3).tex(1, 0).color(r, g, b, 0).endVertex();
+        buf.pos(x1, 0,      z1).tex(0, 0).color(r, g, b, 0).endVertex();
+        buf.pos(x1, midY,   z1).tex(0, 0.5).color(r, g, b, a).endVertex();
+
         buf.pos(x5, height, z5).tex(1, 1).color(r, g, b, 0).endVertex();
-        buf.pos(x5, 0,      z5).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(x3, 0,      z3).tex(0, 0).color(r, g, b, a).endVertex();
+        buf.pos(x5, midY,   z5).tex(1, 0.5).color(r, g, b, a).endVertex();
+        buf.pos(x3, midY,   z3).tex(0, 0.5).color(r, g, b, a).endVertex();
         buf.pos(x3, height, z3).tex(0, 1).color(r, g, b, 0).endVertex();
+
+        buf.pos(x5, midY,   z5).tex(1, 0.5).color(r, g, b, a).endVertex();
+        buf.pos(x5, 0,      z5).tex(1, 0).color(r, g, b, 0).endVertex();
+        buf.pos(x3, 0,      z3).tex(0, 0).color(r, g, b, 0).endVertex();
+        buf.pos(x3, midY,   z3).tex(0, 0.5).color(r, g, b, a).endVertex();
+
+        buf.pos(x7, height, z7).tex(1, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x7, midY,   z7).tex(1, 0.5).color(r, g, b, a).endVertex();
+        buf.pos(x5, midY,   z5).tex(0, 0.5).color(r, g, b, a).endVertex();
+        buf.pos(x5, height, z5).tex(0, 1).color(r, g, b, 0).endVertex();
+
+        buf.pos(x7, midY,   z7).tex(1, 0.5).color(r, g, b, a).endVertex();
+        buf.pos(x7, 0,      z7).tex(1, 0).color(r, g, b, 0).endVertex();
+        buf.pos(x5, 0,      z5).tex(0, 0).color(r, g, b, 0).endVertex();
+        buf.pos(x5, midY,   z5).tex(0, 0.5).color(r, g, b, a).endVertex();
+
+        buf.pos(x1, height, z1).tex(1, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x1, midY,   z1).tex(1, 0.5).color(r, g, b, a).endVertex();
+        buf.pos(x7, midY,   z7).tex(0, 0.5).color(r, g, b, a).endVertex();
+        buf.pos(x7, height, z7).tex(0, 1).color(r, g, b, 0).endVertex();
+
+        buf.pos(x1, midY,   z1).tex(1, 0.5).color(r, g, b, a).endVertex();
+        buf.pos(x1, 0,      z1).tex(1, 0).color(r, g, b, 0).endVertex();
+        buf.pos(x7, 0,      z7).tex(0, 0).color(r, g, b, 0).endVertex();
+        buf.pos(x7, midY,   z7).tex(0, 0.5).color(r, g, b, a).endVertex();
+
         buf.setTranslation(0, 0, 0);
 
         tess.draw();

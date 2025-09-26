@@ -211,7 +211,7 @@ public final class Config {
         innerBeamYOffset = instance.get(
                 category,
                 "innerBeamYOffset",
-                0.25D,
+                0.32D,
                 "Y offset for the inner loot beam"
         ).getDouble();
 
@@ -225,7 +225,7 @@ public final class Config {
         innerBeamHeight = (float) instance.get(
                 category,
                 "innerBeamHeight",
-                1.5,
+                1.2,
                 "Height of the inner beam"
         ).getDouble();
 
@@ -239,7 +239,7 @@ public final class Config {
         innerBeamAlpha = (float) instance.get(
                 category,
                 "innerBeamAlpha",
-                0.45,
+                0.55,
                 "Transparency (alpha) of the inner beam"
         ).getDouble();
 
@@ -257,7 +257,7 @@ public final class Config {
         outerBeamYOffset = instance.get(
                 category,
                 "outerBeamYOffset",
-                0.28D,
+                0.35D,
                 "Vertical Y offset for the outer beam"
         ).getDouble();
 
@@ -271,7 +271,7 @@ public final class Config {
         outerBeamHeight = (float) instance.get(
                 category,
                 "outerBeamHeight",
-                1.65,
+                1.35,
                 "Height of the outer beam"
         ).getDouble();
 
