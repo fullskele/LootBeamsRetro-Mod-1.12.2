@@ -113,45 +113,23 @@ public class RenderEventHandler
                 }
             }
 
-            //Inner beam
-            renderLootBeam(x + Config.innerBeamXOffset, y + Config.innerBeamYOffset, z + Config.innerBeamZOffset,
-                    Config.innerBeamHeight, Config.innerBeamRadius,
-                    rgb[0], rgb[1], rgb[2], rgb[3] * Config.innerBeamAlpha,
-                    (float) (mc.world.getTotalWorldTime() + partialTicks));
+            renderLootBeam(x, y, z, rgb, item.getAge() + item.hoverStart + (float)partialTicks);
 
-            //Outer beam
-            renderLootBeam(x + Config.outerBeamXOffset, y + Config.outerBeamYOffset, z + Config.outerBeamZOffset,
-                    Config.outerBeamHeight, Config.outerBeamRadius,
-                    rgb[0], rgb[1], rgb[2], rgb[3] * Config.outerBeamAlpha,
-                    (float) (mc.world.getTotalWorldTime() + partialTicks));
-
-
-            if (!Config.enableNametagRender ||
+            if (!Config.enableNametagRender || !Minecraft.isGuiEnabled() ||
                     player.getDistance(item) > Config.nametagBlockMaxDistance ||
                     !isLookingAt(player, item, Config.nametagCenterCutoff) ||
-                    !canSee(player, item) ||
-                    !Minecraft.isGuiEnabled()) continue;
+                    !canSee(player, item)) continue;
 
             renderNameTag(item, x + Config.nametagXOffset, y + Config.nametagYOffset, z + Config.nametagZOffset, rgb, fontRenderer);
         }
     }
 
-
-    private static void renderLootBeam(double x, double y, double z,
-                                       float height, float radius,
-                                       float r, float g, float b, float a,
-                                       float time) {
-        Minecraft mc = Minecraft.getMinecraft();
-        Tessellator tess = Tessellator.getInstance();
-        BufferBuilder buf = tess.getBuffer();
-
-        mc.getTextureManager().bindTexture(LOOT_BEAM_TEXTURE);
-
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(x, y, z);
-
+    private static void renderLootBeam(double x, double y, double z, float[] color, float time) {
         int oldProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         if (oldProgram != 0) GL20.glUseProgram(0);
+
+        Minecraft.getMinecraft().getTextureManager().bindTexture(LOOT_BEAM_TEXTURE);
+        float rotation = -(float)Math.toRadians(time * 0.05625 * Config.beamRotateSpeed - 45);
 
         GlStateManager.enableBlend();
         GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -159,46 +137,65 @@ public class RenderEventHandler
         GlStateManager.enableDepth();
         GlStateManager.depthMask(false);
         RenderHelper.disableStandardItemLighting();
+        GlStateManager.disableAlpha();
+        GlStateManager.shadeModel(GL11.GL_SMOOTH);
 
-        float rotation = (time % 40) / 40.0F * Config.beamRotateSpeed;
-        GlStateManager.rotate(rotation * 2.25F - 45F, 0, 1, 0);
+        //Inner beam
+        renderLootBeamPart(x + Config.innerBeamXOffset, y + Config.innerBeamYOffset, z + Config.innerBeamZOffset,
+                Config.innerBeamHeight, Config.innerBeamRadius, rotation,
+                color[0], color[1], color[2], color[3] * Config.innerBeamAlpha);
 
-        buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+        //Outer beam
+        renderLootBeamPart(x + Config.outerBeamXOffset, y + Config.outerBeamYOffset, z + Config.outerBeamZOffset,
+                Config.outerBeamHeight, Config.outerBeamRadius, rotation,
+                color[0], color[1], color[2], color[3] * Config.outerBeamAlpha);
 
-        //Front
-        buf.pos(-radius, 0, -radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, -radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, -radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, 0, -radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        //Back
-        buf.pos(radius, 0, radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, 0, radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        //Left
-        buf.pos(-radius, 0, radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, -radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, 0, -radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        //Right
-        buf.pos(radius, 0, -radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, -radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, 0, radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        tess.draw();
-
+        GlStateManager.shadeModel(GL11.GL_FLAT);
+        GlStateManager.enableAlpha();
         GlStateManager.depthMask(true);
         GlStateManager.enableCull();
         GlStateManager.disableBlend();
         RenderHelper.enableStandardItemLighting();
 
         if (oldProgram != 0) GL20.glUseProgram(oldProgram);
+    }
 
-        GlStateManager.popMatrix();
+    private static void renderLootBeamPart(double x, double y, double z,
+                                           float height, float radius, float rotation,
+                                           float r, float g, float b, float a) {
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder buf = tess.getBuffer();
+        buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+
+        double x1 = MathHelper.cos(rotation + (float)Math.PI * 1 / 4) * radius * 4 / 3;
+        double z1 = MathHelper.sin(rotation + (float)Math.PI * 1 / 4) * radius * 4 / 3;
+        double x3 = MathHelper.cos(rotation + (float)Math.PI * 3 / 4) * radius * 4 / 3;
+        double z3 = MathHelper.sin(rotation + (float)Math.PI * 3 / 4) * radius * 4 / 3;
+        double x5 = MathHelper.cos(rotation + (float)Math.PI * 5 / 4) * radius * 4 / 3;
+        double z5 = MathHelper.sin(rotation + (float)Math.PI * 5 / 4) * radius * 4 / 3;
+        double x7 = MathHelper.cos(rotation + (float)Math.PI * 7 / 4) * radius * 4 / 3;
+        double z7 = MathHelper.sin(rotation + (float)Math.PI * 7 / 4) * radius * 4 / 3;
+
+        buf.setTranslation(x, y, z);
+        buf.pos(x3, height, z3).tex(1, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x3, 0,      z3).tex(1, 0).color(r, g, b, a).endVertex();
+        buf.pos(x1, 0,      z1).tex(0, 0).color(r, g, b, a).endVertex();
+        buf.pos(x1, height, z1).tex(0, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x7, height, z7).tex(1, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x7, 0,      z7).tex(1, 0).color(r, g, b, a).endVertex();
+        buf.pos(x5, 0,      z5).tex(0, 0).color(r, g, b, a).endVertex();
+        buf.pos(x5, height, z5).tex(0, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x1, height, z1).tex(1, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x1, 0,      z1).tex(1, 0).color(r, g, b, a).endVertex();
+        buf.pos(x7, 0,      z7).tex(0, 0).color(r, g, b, a).endVertex();
+        buf.pos(x7, height, z7).tex(0, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x5, height, z5).tex(1, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x5, 0,      z5).tex(1, 0).color(r, g, b, a).endVertex();
+        buf.pos(x3, 0,      z3).tex(0, 0).color(r, g, b, a).endVertex();
+        buf.pos(x3, height, z3).tex(0, 1).color(r, g, b, 0).endVertex();
+        buf.setTranslation(0, 0, 0);
+
+        tess.draw();
     }
 
     private static void renderNameTag(EntityItem item, double x, double y, double z, float[] color, FontRenderer fontRenderer) {
@@ -311,7 +308,7 @@ public class RenderEventHandler
             }
 
         } catch (Throwable t) {
-            System.out.println("[LootBeams] Failed to sync LegendaryTooltips colors: " + t);
+            System.err.println("[LootBeams] Failed to sync LegendaryTooltips colors: " + t);
         }
     }
 }
