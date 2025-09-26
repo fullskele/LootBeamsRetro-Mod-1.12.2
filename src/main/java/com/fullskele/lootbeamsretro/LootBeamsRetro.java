@@ -20,7 +20,7 @@ public class LootBeamsRetro
 {
     public static final String MODID = "lootbeamsretro";
     public static final String NAME = "Loot Beams Retro";
-    public static final String VERSION = "1.1.0";
+    public static final String VERSION = "1.2.0";
 
     public static final boolean hasItemBoarders = Loader.isModLoaded("itemborders");
     public static final boolean hasLegendaryTooltips = Loader.isModLoaded("legendarytooltips");
