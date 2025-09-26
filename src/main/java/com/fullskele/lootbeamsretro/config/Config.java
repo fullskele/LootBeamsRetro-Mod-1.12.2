@@ -1,10 +1,21 @@
 package com.fullskele.lootbeamsretro.config;
 
 import com.fullskele.lootbeamsretro.render.RenderEventHandler;
+import net.minecraft.client.Minecraft;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.EnumDyeColor;
+import net.minecraft.item.EnumRarity;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.common.config.Configuration;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.File;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 public final class Config {
 
@@ -277,16 +288,14 @@ public final class Config {
                 0.35,
                 "Transparency (alpha) of the outer beam"
         ).getDouble();
+    }
 
-
-
-
-
-
-
-
-
-
+    public static void loadItems(boolean reload) {
+        if (reload) {
+            load();
+            RenderEventHandler.COLOR_OVERRIDES.clear();
+            RenderEventHandler.integrateLegendaryTooltips();
+        }
 
         for (String entry : colorOverrides) {
             try {
@@ -294,18 +303,80 @@ public final class Config {
                 if (parts.length != 2) continue;
 
                 ResourceLocation id = new ResourceLocation(parts[0].trim());
-                String hex = parts[1].trim();
+                int metaIndex = id.getPath().indexOf(':');
 
-                if (hex.startsWith("#")) hex = hex.substring(1);
-                if (hex.startsWith("0x")) hex = hex.substring(2);
+                ResourceLocation itemId = metaIndex == -1 ? id : new ResourceLocation(id.getNamespace(), id.getPath().substring(0, metaIndex));
+                Item item = Objects.requireNonNull(Item.REGISTRY.getObject(itemId), () -> "No item with id " + itemId);
 
-                int color = Integer.parseInt(hex, 16);
+                float[] color = strToRgb(parts[1]);
 
-                RenderEventHandler.COLOR_OVERRIDES.put(id, color);
-            } catch (Exception e) {
-                System.out.println("[LootBeams] Invalid color override: " + entry);
+                if (metaIndex == -1) getSubItems(item).forEach(stack -> RenderEventHandler.COLOR_OVERRIDES.put(Pair.of(item, stack.getMetadata()), color));
+                else RenderEventHandler.COLOR_OVERRIDES.put(Pair.of(item, Integer.parseInt(id.getPath().substring(metaIndex + 1))), color);
+            }
+            catch (Exception e) {
+                System.err.println("[LootBeams] Invalid color override: " + entry);
+                System.err.println(e.getLocalizedMessage());
             }
         }
+    }
+
+    public static Stream<ItemStack> getSubItems(Item item) {
+        NonNullList<ItemStack> items = NonNullList.create();
+        item.getSubItems(CreativeTabs.SEARCH, items);
+        return !items.isEmpty() ? items.stream() : Stream.of(new ItemStack(item));
+    }
+
+    public static float[] hexToRgb(int hex) {
+        if ((hex & 0xFF000000) == 0) hex |= 0xFF000000;
+
+        float a = ((hex >> 24) & 0xFF) / 255f;
+        float r = ((hex >> 16) & 0xFF) / 255f;
+        float g = ((hex >> 8) & 0xFF) / 255f;
+        float b = (hex & 0xFF) / 255f;
+
+        return new float[] {r, g, b, a};
+    }
+
+    private static float[] strToRgb(String str) {
+        str = str.trim().toLowerCase();
+
+        if (str.startsWith("#")) str = str.substring(1);
+        else if (str.startsWith("0x")) str = str.substring(2);
+        else if (str.startsWith("rgb(")) {
+            String[] color = str.substring(4).split(",");
+            color[color.length - 1] = color[color.length - 1].substring(0, color[color.length - 1].length() - 1);
+            if (color.length == 1) return hexToRgb(Integer.parseInt(color[0].trim()));
+
+            float r = Integer.parseInt(color[0].trim()) / 255f;
+            float g = Integer.parseInt(color[1].trim()) / 255f;
+            float b = Integer.parseInt(color[2].trim()) / 255f;
+            float a = color.length == 4 ? Integer.parseInt(color[3].trim()) / 255f : 1;
+
+            return new float[] {r, g, b, a};
+        }
+
+        else {
+            for (EnumDyeColor color : EnumDyeColor.values()) {
+                if (color.getDyeColorName().equals(str)) {
+                    return hexToRgb(color.getColorValue());
+                }
+            }
+
+            for (EnumRarity rarity : EnumRarity.values()) {
+                if (rarity.getName().toLowerCase().equals(str)) {
+                    TextFormatting format = rarity.getColor();
+                    // Only support vanilla colors, cannot get possible modded text color without access to its font renderer
+                    if (format.ordinal() < 16) return hexToRgb(Minecraft.getMinecraft().fontRenderer.getColorCode(format.toString().charAt(1)));
+                    else break;
+                }
+            }
+        }
+
+
+        int rgb = Integer.parseInt(str.substring(0, 6), 16);
+        int a = str.length() == 8 ? Integer.parseInt(str.substring(6, 8), 16) : 255;
+
+        return hexToRgb(rgb | a << 24);
     }
 
     private Config() {}

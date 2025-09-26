@@ -10,18 +10,21 @@ import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.item.EnumRarity;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
-import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.common.IRarity;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
@@ -30,24 +33,20 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 
-import java.awt.*;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
+
+import static com.fullskele.lootbeamsretro.config.Config.hexToRgb;
 
 @Mod.EventBusSubscriber(value = Side.CLIENT, modid = LootBeamsRetro.MODID)
-public class RenderEventHandler {
-
-    //TODO: Metadata support
-
+public class RenderEventHandler
+{
     private static final ResourceLocation LOOT_BEAM_TEXTURE =
             new ResourceLocation(LootBeamsRetro.MODID, "textures/entity/loot_beam.png");
 
-    public static final Map<ResourceLocation, Integer> COLOR_OVERRIDES = new HashMap<>();
+    public static final Map<Pair<Item, Integer>, float[]> COLOR_OVERRIDES = new HashMap<>();
     private static final Frustum frustum = new Frustum();
-    private static final Map<EnumRarity, float[]> rarityCache = new HashMap<>();
 
     @SubscribeEvent
     public static void onRenderWorldLast(RenderWorldLastEvent event) {
@@ -61,23 +60,28 @@ public class RenderEventHandler {
 
         frustum.setPosition(px, py, pz);
 
-        List<EntityItem> items = mc.world.getEntitiesWithinAABB(EntityItem.class,
-                player.getEntityBoundingBox().grow(Config.beamBlockMaxDistance));
-
-        for (EntityItem item : items) {
-            if (!frustum.isBoundingBoxInFrustum(item.getEntityBoundingBox())) continue;
+        for (EntityItem item : mc.world.getEntitiesWithinAABB(EntityItem.class, player.getEntityBoundingBox().grow(Config.beamBlockMaxDistance))) {
+            if (!item.isInRangeToRender3d(px, py, pz)) continue;
 
             double x = interpolate(item.lastTickPosX, item.posX, partialTicks) - px;
             double y = interpolate(item.lastTickPosY, item.posY, partialTicks) - py;
             double z = interpolate(item.lastTickPosZ, item.posZ, partialTicks) - pz;
 
-            ItemStack stack = item.getItem();
-            EnumRarity rarity = stack.getRarity();
+            if (!item.ignoreFrustumCheck)
+            {
+                double beamHeight = Math.max(Config.innerBeamYOffset + Config.innerBeamHeight, Config.outerBeamYOffset + Config.outerBeamHeight);
+                if (!frustum.isBoundingBoxInFrustum(item.getRenderBoundingBox().setMaxY(py + y + beamHeight))) continue;
+            }
 
-            float[] rgb = rarityCache.computeIfAbsent(rarity, r -> getRarityColor(r));
+            ItemStack stack = item.getItem();
+            IRarity rarity = stack.getItem().getForgeRarity(stack);
+            FontRenderer fontRenderer = stack.getItem().getFontRenderer(stack);
+            if (fontRenderer == null) fontRenderer = mc.fontRenderer;
+
+            float[] rgb = getRarityColor(fontRenderer, rarity);
             boolean usedBorderColor = false;
 
-            if (Config.itemBordersCompat && Loader.isModLoaded("itemborders"))
+            if (Config.itemBordersCompat && LootBeamsRetro.hasItemBoarders)
             {
                 Pair<Supplier<Integer>, Supplier<Integer>> borderColors = ItemBordersConfig.INSTANCE.getBorderColorForItem(stack);
 
@@ -88,15 +92,9 @@ public class RenderEventHandler {
                     int leftColor = borderColors.getLeft().get();
 
                     // Logic to skip common items to favor usual overrides
-                    if (!(rarity == EnumRarity.COMMON
-                            && (leftColor == 0xFFFFFF || leftColor == 0xFFFFFFFF)))
+                    if (rarity != EnumRarity.COMMON || leftColor != 0xFFFFFF && leftColor != 0xFFFFFFFF)
                     {
-                        Color color = new Color(leftColor, true);
-                        rgb = new float[] {
-                                color.getRed() / 255f,
-                                color.getGreen() / 255f,
-                                color.getBlue() / 255f
-                        };
+                        rgb = hexToRgb(leftColor);
                         usedBorderColor = true;
                     }
                 }
@@ -106,110 +104,102 @@ public class RenderEventHandler {
             if (!usedBorderColor)
             {
                 //Override color if in map
-                ResourceLocation id = stack.getItem().getRegistryName();
-                if (id != null && COLOR_OVERRIDES.containsKey(id)) {
-                    rgb = hexToRgb(COLOR_OVERRIDES.get(id));
+                Pair<Item, Integer> id = Pair.of(stack.getItem(), stack.getMetadata());
+                if (COLOR_OVERRIDES.containsKey(id)) {
+                    rgb = COLOR_OVERRIDES.get(id);
                 } else {
                     if (!Config.beamForAnyRarity) continue;
                     if (rarity == EnumRarity.COMMON && !Config.beamForCommonRarity) continue;
                 }
             }
 
-            //Inner beam
-            renderLootBeam(x + Config.innerBeamXOffset, y + Config.innerBeamYOffset, z + Config.innerBeamZOffset,
-                    Config.innerBeamHeight, Config.innerBeamRadius,
-                    rgb[0], rgb[1], rgb[2], Config.innerBeamAlpha,
-                    (float) (mc.world.getTotalWorldTime() + partialTicks));
+            renderLootBeam(x, y, z, rgb, item.getAge() + item.hoverStart + (float)partialTicks);
 
-            //Outer beam
-            renderLootBeam(x + Config.outerBeamXOffset, y + Config.outerBeamYOffset, z + Config.outerBeamZOffset,
-                    Config.outerBeamHeight, Config.outerBeamRadius,
-                    rgb[0], rgb[1], rgb[2], Config.outerBeamAlpha,
-                    (float) (mc.world.getTotalWorldTime() + partialTicks));
-
-
-            if (!Config.enableNametagRender ||
+            if (!Config.enableNametagRender || !Minecraft.isGuiEnabled() ||
                     player.getDistance(item) > Config.nametagBlockMaxDistance ||
                     !isLookingAt(player, item, Config.nametagCenterCutoff) ||
-                    !canSee(player, item) ||
-                    !Minecraft.isGuiEnabled()) continue;
+                    !canSee(player, item)) continue;
 
-            Color tagColor = new Color(rgb[0], rgb[1], rgb[2]);
-            renderNameTag(item, x + Config.nametagXOffset, y + Config.nametagYOffset, z + Config.nametagZOffset, tagColor);
+            renderNameTag(item, x + Config.nametagXOffset, y + Config.nametagYOffset, z + Config.nametagZOffset, rgb, fontRenderer);
         }
     }
 
-
-    private static void renderLootBeam(double x, double y, double z,
-                                       float height, float radius,
-                                       float r, float g, float b, float a,
-                                       float time) {
-        Minecraft mc = Minecraft.getMinecraft();
-        Tessellator tess = Tessellator.getInstance();
-        BufferBuilder buf = tess.getBuffer();
-
-        mc.getTextureManager().bindTexture(LOOT_BEAM_TEXTURE);
-
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(x, y, z);
-
+    private static void renderLootBeam(double x, double y, double z, float[] color, float time) {
         int oldProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         if (oldProgram != 0) GL20.glUseProgram(0);
 
-        GlStateManager.disableLighting();
+        Minecraft.getMinecraft().getTextureManager().bindTexture(LOOT_BEAM_TEXTURE);
+        float rotation = -(float)Math.toRadians(time * 0.05625 * Config.beamRotateSpeed - 45);
+
         GlStateManager.enableBlend();
         GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GlStateManager.disableCull();
         GlStateManager.enableDepth();
         GlStateManager.depthMask(false);
-        net.minecraft.client.renderer.RenderHelper.disableStandardItemLighting();
+        RenderHelper.disableStandardItemLighting();
+        GlStateManager.disableAlpha();
+        GlStateManager.shadeModel(GL11.GL_SMOOTH);
 
-        float rotation = (time % 40) / 40.0F * Config.beamRotateSpeed;
-        GlStateManager.rotate(rotation * 2.25F - 45F, 0, 1, 0);
+        //Inner beam
+        renderLootBeamPart(x + Config.innerBeamXOffset, y + Config.innerBeamYOffset, z + Config.innerBeamZOffset,
+                Config.innerBeamHeight, Config.innerBeamRadius, rotation,
+                color[0], color[1], color[2], color[3] * Config.innerBeamAlpha);
 
-        buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+        //Outer beam
+        renderLootBeamPart(x + Config.outerBeamXOffset, y + Config.outerBeamYOffset, z + Config.outerBeamZOffset,
+                Config.outerBeamHeight, Config.outerBeamRadius, rotation,
+                color[0], color[1], color[2], color[3] * Config.outerBeamAlpha);
 
-        //Front
-        buf.pos(-radius, 0, -radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, -radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, -radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, 0, -radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        //Back
-        buf.pos(radius, 0, radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, 0, radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        //Left
-        buf.pos(-radius, 0, radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, height, -radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(-radius, 0, -radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        //Right
-        buf.pos(radius, 0, -radius).tex(0, 1).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, -radius).tex(0, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, height, radius).tex(1, 0).color(r, g, b, a).endVertex();
-        buf.pos(radius, 0, radius).tex(1, 1).color(r, g, b, a).endVertex();
-
-        tess.draw();
-
+        GlStateManager.shadeModel(GL11.GL_FLAT);
+        GlStateManager.enableAlpha();
         GlStateManager.depthMask(true);
         GlStateManager.enableCull();
         GlStateManager.disableBlend();
-        GlStateManager.enableLighting();
-        net.minecraft.client.renderer.RenderHelper.enableStandardItemLighting();
+        RenderHelper.enableStandardItemLighting();
 
         if (oldProgram != 0) GL20.glUseProgram(oldProgram);
-
-        GlStateManager.popMatrix();
     }
 
-    private static void renderNameTag(EntityItem item, double x, double y, double z, Color color) {
-        Minecraft mc = Minecraft.getMinecraft();
-        FontRenderer fontRenderer = mc.fontRenderer;
+    private static void renderLootBeamPart(double x, double y, double z,
+                                           float height, float radius, float rotation,
+                                           float r, float g, float b, float a) {
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder buf = tess.getBuffer();
+        buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
 
+        double x1 = MathHelper.cos(rotation + (float)Math.PI * 1 / 4) * radius * 4 / 3;
+        double z1 = MathHelper.sin(rotation + (float)Math.PI * 1 / 4) * radius * 4 / 3;
+        double x3 = MathHelper.cos(rotation + (float)Math.PI * 3 / 4) * radius * 4 / 3;
+        double z3 = MathHelper.sin(rotation + (float)Math.PI * 3 / 4) * radius * 4 / 3;
+        double x5 = MathHelper.cos(rotation + (float)Math.PI * 5 / 4) * radius * 4 / 3;
+        double z5 = MathHelper.sin(rotation + (float)Math.PI * 5 / 4) * radius * 4 / 3;
+        double x7 = MathHelper.cos(rotation + (float)Math.PI * 7 / 4) * radius * 4 / 3;
+        double z7 = MathHelper.sin(rotation + (float)Math.PI * 7 / 4) * radius * 4 / 3;
+
+        buf.setTranslation(x, y, z);
+        buf.pos(x3, height, z3).tex(1, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x3, 0,      z3).tex(1, 0).color(r, g, b, a).endVertex();
+        buf.pos(x1, 0,      z1).tex(0, 0).color(r, g, b, a).endVertex();
+        buf.pos(x1, height, z1).tex(0, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x7, height, z7).tex(1, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x7, 0,      z7).tex(1, 0).color(r, g, b, a).endVertex();
+        buf.pos(x5, 0,      z5).tex(0, 0).color(r, g, b, a).endVertex();
+        buf.pos(x5, height, z5).tex(0, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x1, height, z1).tex(1, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x1, 0,      z1).tex(1, 0).color(r, g, b, a).endVertex();
+        buf.pos(x7, 0,      z7).tex(0, 0).color(r, g, b, a).endVertex();
+        buf.pos(x7, height, z7).tex(0, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x5, height, z5).tex(1, 1).color(r, g, b, 0).endVertex();
+        buf.pos(x5, 0,      z5).tex(1, 0).color(r, g, b, a).endVertex();
+        buf.pos(x3, 0,      z3).tex(0, 0).color(r, g, b, a).endVertex();
+        buf.pos(x3, height, z3).tex(0, 1).color(r, g, b, 0).endVertex();
+        buf.setTranslation(0, 0, 0);
+
+        tess.draw();
+    }
+
+    private static void renderNameTag(EntityItem item, double x, double y, double z, float[] color, FontRenderer fontRenderer) {
+        Minecraft mc = Minecraft.getMinecraft();
         GlStateManager.pushMatrix();
         {
             GlStateManager.translate(x, y, z);
@@ -236,19 +226,20 @@ public class RenderEventHandler {
             }
 
             int textWidth = fontRenderer.getStringWidth(itemName) / 2;
+            float alpha = 64f / 255f * color[3];
 
             Tessellator tessellator = Tessellator.getInstance();
             BufferBuilder buffer = tessellator.getBuffer();
             GlStateManager.disableTexture2D();
             buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
-            buffer.pos(-textWidth - 1, -1, 0.0D).color(0, 0, 0, 64).endVertex();
-            buffer.pos(-textWidth - 1, 8, 0.0D).color(0, 0, 0, 64).endVertex();
-            buffer.pos(textWidth + 1, 8, 0.0D).color(0, 0, 0, 64).endVertex();
-            buffer.pos(textWidth + 1, -1, 0.0D).color(0, 0, 0, 64).endVertex();
+            buffer.pos(-textWidth - 1, -1, 0.0D).color(0, 0, 0, alpha).endVertex();
+            buffer.pos(-textWidth - 1, 8, 0.0D).color(0, 0, 0, alpha).endVertex();
+            buffer.pos(textWidth + 1, 8, 0.0D).color(0, 0, 0, alpha).endVertex();
+            buffer.pos(textWidth + 1, -1, 0.0D).color(0, 0, 0, alpha).endVertex();
             tessellator.draw();
             GlStateManager.enableTexture2D();
 
-            int rgb = color.getRGB();
+            int rgb = MathHelper.rgb(color[0], color[1], color[2]) | (int)(color[3] * 255) << 24;
             fontRenderer.drawString(itemName, -textWidth, 0, rgb);
 
             GlStateManager.enableDepth();
@@ -261,30 +252,8 @@ public class RenderEventHandler {
         GlStateManager.popMatrix();
     }
 
-    private static float[] getRarityColor(EnumRarity rarity) {
-        switch (rarity) {
-            case COMMON:
-                //white
-                return new float[]{1f, 1f, 1f};
-            case UNCOMMON:
-                //yellow
-                return new float[]{1f, 1f, 0f};
-            case RARE:
-                //cyan
-                return new float[]{0f, 1f, 1f};
-            case EPIC:
-                //hot pink
-                return new float[]{1f, 0f, 1f};
-            default:
-                return new float[]{1f, 1f, 1f};
-        }
-    }
-
-    private static float[] hexToRgb(int hex) {
-        float r = ((hex >> 16) & 0xFF) / 255.0F;
-        float g = ((hex >> 8) & 0xFF) / 255.0F;
-        float b = (hex & 0xFF) / 255.0F;
-        return new float[]{r, g, b};
+    private static float[] getRarityColor(FontRenderer fontRenderer, IRarity rarity) {
+        return hexToRgb(fontRenderer.getColorCode(rarity.getColor().toString().charAt(1)));
     }
 
     private static double interpolate(double last, double current, double partialTicks) {
@@ -312,39 +281,34 @@ public class RenderEventHandler {
         return result == null || result.typeOfHit == RayTraceResult.Type.MISS;
     }
 
-    private static Iterable<ItemStack> getAllRegisteredItems() {
-        return ForgeRegistries.ITEMS.getValuesCollection().stream()
-                .filter(i -> i != null)
-                .map(ItemStack::new)
-                .collect(Collectors.toList());
+    private static ItemStack[] getAllRegisteredItems() {
+        return ForgeRegistries.ITEMS.getValuesCollection().stream().flatMap(Config::getSubItems).toArray(ItemStack[]::new);
     }
 
     public static void integrateLegendaryTooltips() {
-        try {
+        if (LootBeamsRetro.hasLegendaryTooltips && Config.legendaryTooltipsCompat) try {
             LegendaryTooltipsConfig config = LegendaryTooltipsConfig.INSTANCE;
+            ItemStack[] allItems = getAllRegisteredItems();
 
             for (int level = 0; level < LegendaryTooltips.NUM_FRAMES; level++) {
                 Integer colorHex = config.getCustomBackgroundColor(level);
                 if (colorHex == null) continue;
 
-                for (ItemStack stack : getAllRegisteredItems()) {
+                for (ItemStack stack : allItems) {
                     if (config.getFrameLevelForItem(stack) == level) {
-                        EnumRarity rarity = stack.getRarity();
+                        IRarity rarity = stack.getItem().getForgeRarity(stack);
 
                         if (!Config.legendaryTooltipsAffectRarity && rarity != EnumRarity.COMMON) {
                             continue;
                         }
 
-                        ResourceLocation id = stack.getItem().getRegistryName();
-                        if (id != null) {
-                            COLOR_OVERRIDES.put(id, colorHex);
-                        }
+                        COLOR_OVERRIDES.put(Pair.of(stack.getItem(), stack.getMetadata()), hexToRgb(colorHex));
                     }
                 }
             }
 
         } catch (Throwable t) {
-            System.out.println("[LootBeams] Failed to sync LegendaryTooltips colors: " + t);
+            System.err.println("[LootBeams] Failed to sync LegendaryTooltips colors: " + t);
         }
     }
 }
