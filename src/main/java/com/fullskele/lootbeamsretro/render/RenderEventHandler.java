@@ -27,7 +27,6 @@ import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.IRarity;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.lang3.tuple.Pair;
 import org.lwjgl.opengl.GL11;
@@ -46,6 +45,7 @@ public class RenderEventHandler
             new ResourceLocation(LootBeamsRetro.MODID, "textures/entity/loot_beam.png");
 
     public static final Map<Pair<Item, Integer>, float[]> COLOR_OVERRIDES = new HashMap<>();
+    public static float[][] LEGENDARY_TOOLTIPS_COLOR_OVERRIDES = null;
     private static final Frustum frustum = new Frustum();
 
     @SubscribeEvent
@@ -78,39 +78,28 @@ public class RenderEventHandler
             FontRenderer fontRenderer = stack.getItem().getFontRenderer(stack);
             if (fontRenderer == null) fontRenderer = mc.fontRenderer;
 
-            float[] rgb = getRarityColor(fontRenderer, rarity);
-            boolean usedBorderColor = false;
-
-            if (Config.itemBordersCompat && LootBeamsRetro.hasItemBoarders)
-            {
-                Pair<Supplier<Integer>, Supplier<Integer>> borderColors = ItemBordersConfig.INSTANCE.getBorderColorForItem(stack);
-
-                if (borderColors != null
-                        && borderColors.getLeft() != null && borderColors.getLeft().get() != null
-                        && borderColors.getRight() != null && borderColors.getRight().get() != null)
+            float[] rgb = null;
+            //Override color if in map
+            Pair<Item, Integer> id = Pair.of(stack.getItem(), stack.getMetadata());
+            if (COLOR_OVERRIDES.containsKey(id)) rgb = COLOR_OVERRIDES.get(id);
+            else {
+                if (Config.itemBordersCompat && LootBeamsRetro.hasItemBoarders)
                 {
-                    int leftColor = borderColors.getLeft().get();
+                    rgb = getItemBoardersColor(stack, rarity);
+                }
 
-                    // Logic to skip common items to favor usual overrides
-                    if (rarity != EnumRarity.COMMON || leftColor != 0xFFFFFF && leftColor != 0xFFFFFFFF)
-                    {
-                        rgb = hexToRgb(leftColor);
-                        usedBorderColor = true;
-                    }
+                if (Config.legendaryTooltipsCompat && LootBeamsRetro.hasLegendaryTooltips)
+                {
+                    rgb = getLegendaryTooltipsColor(stack, rarity, rgb);
                 }
             }
 
-            //Usual logic if no usable border color
-            if (!usedBorderColor)
+            //Usual logic if no configured color
+            if (rgb == null)
             {
-                //Override color if in map
-                Pair<Item, Integer> id = Pair.of(stack.getItem(), stack.getMetadata());
-                if (COLOR_OVERRIDES.containsKey(id)) {
-                    rgb = COLOR_OVERRIDES.get(id);
-                } else {
-                    if (!Config.beamForAnyRarity) continue;
-                    if (rarity == EnumRarity.COMMON && !Config.beamForCommonRarity) continue;
-                }
+                if (!Config.beamForAnyRarity) continue;
+                if (rarity == EnumRarity.COMMON && !Config.beamForCommonRarity) continue;
+                rgb = getRarityColor(fontRenderer, rarity);
             }
 
             renderLootBeam(x, y, z, rgb, item.getAge() + item.hoverStart + (float)partialTicks);
@@ -308,34 +297,40 @@ public class RenderEventHandler
         return result == null || result.typeOfHit == RayTraceResult.Type.MISS;
     }
 
-    private static ItemStack[] getAllRegisteredItems() {
-        return ForgeRegistries.ITEMS.getValuesCollection().stream().flatMap(Config::getSubItems).toArray(ItemStack[]::new);
+    private static float[] getItemBoardersColor(ItemStack stack, IRarity rarity) {
+        Pair<Supplier<Integer>, Supplier<Integer>> borderColors = ItemBordersConfig.INSTANCE.getBorderColorForItem(stack);
+
+        if (borderColors != null
+                && borderColors.getLeft() != null && borderColors.getLeft().get() != null
+                && borderColors.getRight() != null && borderColors.getRight().get() != null)
+        {
+            int leftColor = borderColors.getLeft().get();
+
+            // Logic to skip common items to favor usual overrides
+            if (rarity != EnumRarity.COMMON || leftColor != 0xFFFFFF && leftColor != 0xFFFFFFFF)
+            {
+                return hexToRgb(leftColor);
+            }
+        }
+
+        return null;
     }
 
-    public static void integrateLegendaryTooltips() {
-        if (LootBeamsRetro.hasLegendaryTooltips && Config.legendaryTooltipsCompat) try {
-            LegendaryTooltipsConfig config = LegendaryTooltipsConfig.INSTANCE;
-            ItemStack[] allItems = getAllRegisteredItems();
-
-            for (int level = 0; level < LegendaryTooltips.NUM_FRAMES; level++) {
-                Integer colorHex = config.getCustomBackgroundColor(level);
-                if (colorHex == null) continue;
-
-                for (ItemStack stack : allItems) {
-                    if (config.getFrameLevelForItem(stack) == level) {
-                        IRarity rarity = stack.getItem().getForgeRarity(stack);
-
-                        if (!Config.legendaryTooltipsAffectRarity && rarity != EnumRarity.COMMON) {
-                            continue;
-                        }
-
-                        COLOR_OVERRIDES.put(Pair.of(stack.getItem(), stack.getMetadata()), hexToRgb(colorHex));
-                    }
-                }
+    private static float[] getLegendaryTooltipsColor(ItemStack stack, IRarity rarity, float[] fallback) {
+        if (LEGENDARY_TOOLTIPS_COLOR_OVERRIDES == null)
+        {
+            LEGENDARY_TOOLTIPS_COLOR_OVERRIDES = new float[LegendaryTooltips.NUM_FRAMES][];
+            for (int level = 0; level < LEGENDARY_TOOLTIPS_COLOR_OVERRIDES.length; level++)
+            {
+                Integer colorHex = LegendaryTooltipsConfig.INSTANCE.getCustomBackgroundColor(level);
+                if (colorHex != null) LEGENDARY_TOOLTIPS_COLOR_OVERRIDES[level] = hexToRgb(colorHex);
             }
-
-        } catch (Throwable t) {
-            System.err.println("[LootBeams] Failed to sync LegendaryTooltips colors: " + t);
         }
+
+        int level = LegendaryTooltipsConfig.INSTANCE.getFrameLevelForItem(stack);
+        if (level < 0 || level >= LEGENDARY_TOOLTIPS_COLOR_OVERRIDES.length) return fallback;
+
+        float[] rgb = LEGENDARY_TOOLTIPS_COLOR_OVERRIDES[level];
+        return rgb == null || !Config.legendaryTooltipsAffectRarity && rarity != EnumRarity.COMMON ? fallback : rgb;
     }
 }

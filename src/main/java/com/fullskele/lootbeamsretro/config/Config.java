@@ -14,8 +14,8 @@ import net.minecraftforge.common.config.Configuration;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.Objects;
-import java.util.stream.Stream;
 
 public final class Config {
 
@@ -294,7 +294,6 @@ public final class Config {
         if (reload) {
             load();
             RenderEventHandler.COLOR_OVERRIDES.clear();
-            RenderEventHandler.integrateLegendaryTooltips();
         }
 
         for (String entry : colorOverrides) {
@@ -320,10 +319,10 @@ public final class Config {
         }
     }
 
-    public static Stream<ItemStack> getSubItems(Item item) {
+    public static Iterable<ItemStack> getSubItems(Item item) {
         NonNullList<ItemStack> items = NonNullList.create();
         item.getSubItems(CreativeTabs.SEARCH, items);
-        return !items.isEmpty() ? items.stream() : Stream.of(new ItemStack(item));
+        return !items.isEmpty() ? items : Collections.singleton(new ItemStack(item));
     }
 
     public static float[] hexToRgb(int hex) {
