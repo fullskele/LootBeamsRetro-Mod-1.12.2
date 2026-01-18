@@ -1,6 +1,7 @@
 package com.fullskele.lootbeamsretro.config;
 
 import com.fullskele.lootbeamsretro.LootBeamsRetro;
+import com.fullskele.lootbeamsretro.render.RenderEventHandler;
 import net.minecraftforge.fml.client.event.ConfigChangedEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
@@ -19,7 +20,7 @@ public class ConfigEventHandler
         }
 
         else if (event.getModID().equals("legendarytooltips") && Config.legendaryTooltipsCompat) {
-            Config.loadItems(true);
+            RenderEventHandler.LEGENDARY_TOOLTIPS_COLOR_OVERRIDES = null;
         }
     }
 }
